@@ -106,6 +106,8 @@ Most AI CLI tools require:
 
 ## 🤝 Contributing
 
+Review the [Repository Guidelines](./AGENTS.md) before opening a PR.
+
 To add a new tool:
 1. Create a new markdown file in the appropriate category directory
 2. Follow the standardized format (see [Template](./docs/template.md))
