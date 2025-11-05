@@ -56,6 +56,20 @@ source ~/.bashrc
 
 Get your API key from: https://platform.openai.com/api-keys
 
+### Remote tunnel workflow
+When Codex runs on a remote server, tunnel the API port instead of exposing it publicly:
+
+```bash
+# Forward Codex service on port 1455 to your workstation
+ssh -L 1455:localhost:1455 root@server_ip
+
+# Point the CLI at the forwarded endpoint
+export CODEX_API_URL="http://localhost:1455"
+codex chat
+```
+
+Keep the SSH session open while using Codex, and store permanent environment overrides in `~/.ai-cli-env` or your shell profile. Re-run `bash scripts/quick-test.sh` locally to confirm the tunnel resolves before closing the session.
+
 ## 🐛 Troubleshooting
 
 ### Command not found
