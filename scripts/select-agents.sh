@@ -155,7 +155,7 @@ select_none() {
 show_agent_info() {
     echo -e "${CYAN}Enter agent number (1-9) to see details:${NC}"
     read -r choice
-    
+
     if [[ "$choice" =~ ^[1-9]$ ]]; then
         local agent_keys=($(printf '%s\n' "${!AGENTS[@]}" | sort))
         local agent_key="${agent_keys[$((choice-1))]}"
@@ -195,7 +195,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -265,7 +265,6 @@ EOF
 
 # Main execution
 main() {
-    echo "Installing selected AI agents..."
     check_prerequisites
     install_agents
 }

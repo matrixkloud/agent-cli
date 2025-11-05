@@ -16,277 +16,262 @@ NC='\033[0m'
 
 # Package definitions
 declare -A PACKAGES
-PACKAGES[claude]="npm:@anthropic-ai/claude-code|pip:claude-ai|brew:claude-ai"
-PACKAGES[gemini]="npm:@google/gemini-cli|pip:google-generativeai"
-PACKAGES[codex]="npm:@openai/codex|pip:openai"
-PACKAGES[perplexity]="pip:perplexity-ai|npm:@perplexity-ai/cli"
-PACKAGES[aider]="pip:aider-chat|npm:aider-cli"
-PACKAGES[ai_shell]="pip:ai-shell|npm:ai-shell"
+PACKAGES[anthropic-claude]="npm:@anthropic-ai/claude-code|pip:claude-ai|brew:claude-ai"
+PACKAGES[google-gemini]="npm:@google/gemini-cli|pip:google-generativeai"
+PACKAGES[openai-codex]="npm:@openai/codex|pip:openai"
+PACKAGES[perplexity-ai]="pip:perplexity-ai|npm:@perplexity-ai/cli"
+PACKAGES[aider-chat]="pip:aider-chat|npm:aider-cli"
+PACKAGES[ai-shell]="pip:ai-shell|npm:ai-shell"
 PACKAGES[ollama]="brew:ollama|curl:https://ollama.ai/install.sh"
 PACKAGES[cursor]="curl:https://cursor.com/install"
-PACKAGES[copilot]="gh:github/gh-copilot"
+PACKAGES[github-copilot]="gh:github/gh-copilot"
 
-# Package manager detection
-detect_package_managers() {
-    local managers=()
-    
-    if command -v npm >/dev/null 2>&1; then
-        managers+=("npm")
-    fi
-    
-    if command -v pip >/dev/null 2>&1; then
-        managers+=("pip")
-    fi
-    
-    if command -v pip3 >/dev/null 2>&1; then
-        managers+=("pip3")
-    fi
-    
-    if command -v brew >/dev/null 2>&1; then
-        managers+=("brew")
-    fi
-    
-    if command -v gh >/dev/null 2>&1; then
-        managers+=("gh")
-    fi
-    
-    if command -v curl >/dev/null 2>&1; then
-        managers+=("curl")
-    fi
-    
-    echo "${managers[@]}"
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
-# Get package info
-get_package_info() {
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Get the preferred package manager for a given package
+get_preferred_manager() {
     local package_name="$1"
     local package_info="${PACKAGES[$package_name]}"
-    
-    if [ -z "$package_info" ]; then
-        echo "Package '$package_name' not found"
-        return 1
-    fi
-    
-    echo "$package_info"
+
+    IFS='|' read -ra installers <<< "$package_info"
+
+    for installer in "${installers[@]}"; do
+        IFS=':' read -ra parts <<< "$installer"
+        local manager="${parts[0]}"
+
+        if command -v "$manager" >/dev/null 2>&1; then
+            echo "$manager"
+            return
+        fi
+    done
 }
 
-# Install package
+# Install a package using a specific package manager
+install_package_with_manager() {
+    local package_name="$1"
+    local manager="$2"
+    local package_info="${PACKAGES[$package_name]}"
+
+    IFS='|' read -ra installers <<< "$package_info"
+
+    for installer in "${installers[@]}"; do
+        IFS=':' read -ra parts <<< "$installer"
+        local current_manager="${parts[0]}"
+        local package="${parts[1]}"
+
+        if [ "$current_manager" == "$manager" ]; then
+            case "$manager" in
+                "npm")
+                    npm install -g "$package"
+                    ;;
+                "pip"|"pip3")
+                    "$manager" install "$package"
+                    ;;
+                "brew")
+                    brew install "$package"
+                    ;;
+                "gh")
+                    gh extension install "$package"
+                    ;;
+                "curl")
+                    curl -fsSL "$package" | bash
+                    ;;
+            esac
+            return
+        fi
+    done
+
+    log_error "Could not find installer for package '$package_name' with manager '$manager'"
+    exit 1
+}
+
+# Install a package
 install_package() {
     local package_name="$1"
-    local package_info="${PACKAGES[$package_name]}"
-    
-    if [ -z "$package_info" ]; then
+
+    if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"
-        return 1
+        exit 1
     fi
-    
-    log_info "Installing $package_name..."
-    
-    IFS='|' read -ra installers <<< "$package_info"
-    
-    for installer in "${installers[@]}"; do
-        IFS=':' read -ra parts <<< "$installer"
-        local manager="${parts[0]}"
-        local package="${parts[1]}"
-        
-        case "$manager" in
-            "npm")
-                if command -v npm >/dev/null 2>&1; then
-                    log_info "Installing via npm: $package"
-                    npm install -g "$package"
-                    log_success "$package_name installed via npm"
-                    return 0
-                fi
-                ;;
-            "pip"|"pip3")
-                if command -v "$manager" >/dev/null 2>&1; then
-                    log_info "Installing via $manager: $package"
-                    "$manager" install "$package"
-                    log_success "$package_name installed via $manager"
-                    return 0
-                fi
-                ;;
-            "brew")
-                if command -v brew >/dev/null 2>&1; then
-                    log_info "Installing via brew: $package"
-                    brew install "$package"
-                    log_success "$package_name installed via brew"
-                    return 0
-                fi
-                ;;
-            "gh")
-                if command -v gh >/dev/null 2>&1; then
-                    log_info "Installing via gh: $package"
-                    gh extension install "$package"
-                    log_success "$package_name installed via gh"
-                    return 0
-                fi
-                ;;
-            "curl")
-                log_info "Installing via curl: $package"
-                curl -fsSL "$package" | bash
-                log_success "$package_name installed via curl"
-                return 0
-                ;;
-        esac
-    done
-    
-    log_error "No suitable package manager found for $package_name"
-    return 1
+
+    local preferred_manager=$(get_preferred_manager "$package_name")
+
+    if [ -z "$preferred_manager" ]; then
+        log_error "No suitable package manager found for package '$package_name'"
+        exit 1
+    fi
+
+    log_info "Installing '$package_name' with '$preferred_manager'..."
+
+    if install_package_with_manager "$package_name" "$preferred_manager"; then
+        log_success "Successfully installed '$package_name'"
+    else
+        log_error "Failed to install '$package_name'"
+        exit 1
+    fi
 }
 
-# Update package
+# Update a package
 update_package() {
     local package_name="$1"
-    local package_info="${PACKAGES[$package_name]}"
-    
-    if [ -z "$package_info" ]; then
+
+    if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"
-        return 1
+        exit 1
     fi
-    
-    log_info "Updating $package_name..."
-    
-    IFS='|' read -ra installers <<< "$package_info"
-    
-    for installer in "${installers[@]}"; do
-        IFS=':' read -ra parts <<< "$installer"
-        local manager="${parts[0]}"
-        local package="${parts[1]}"
-        
-        case "$manager" in
-            "npm")
-                if command -v npm >/dev/null 2>&1; then
-                    log_info "Updating via npm: $package"
-                    npm update -g "$package"
-                    log_success "$package_name updated via npm"
-                    return 0
-                fi
-                ;;
-            "pip"|"pip3")
-                if command -v "$manager" >/dev/null 2>&1; then
-                    log_info "Updating via $manager: $package"
-                    "$manager" install --upgrade "$package"
-                    log_success "$package_name updated via $manager"
-                    return 0
-                fi
-                ;;
-            "brew")
-                if command -v brew >/dev/null 2>&1; then
-                    log_info "Updating via brew: $package"
-                    brew upgrade "$package"
-                    log_success "$package_name updated via brew"
-                    return 0
-                fi
-                ;;
-            "gh")
-                if command -v gh >/dev/null 2>&1; then
-                    log_info "Updating via gh: $package"
-                    gh extension upgrade "$package"
-                    log_success "$package_name updated via gh"
-                    return 0
-                fi
-                ;;
-            "curl")
-                log_info "Reinstalling via curl: $package"
-                curl -fsSL "$package" | bash
-                log_success "$package_name updated via curl"
-                return 0
-                ;;
-        esac
-    done
-    
-    log_error "No suitable package manager found for $package_name"
-    return 1
+
+    local preferred_manager=$(get_preferred_manager "$package_name")
+
+    if [ -z "$preferred_manager" ]; then
+        log_error "No suitable package manager found for package '$package_name'"
+        exit 1
+    fi
+
+    log_info "Updating '$package_name' with '$preferred_manager'..."
+
+    if update_package_with_manager "$package_name" "$preferred_manager"; then
+        log_success "Successfully updated '$package_name'"
+    else
+        log_error "Failed to update '$package_name'"
+        exit 1
+    fi
 }
 
-# Uninstall package
-uninstall_package() {
+# Update a package with a specific package manager
+update_package_with_manager() {
     local package_name="$1"
+    local manager="$2"
     local package_info="${PACKAGES[$package_name]}"
-    
-    if [ -z "$package_info" ]; then
-        log_error "Package '$package_name' not found"
-        return 1
-    fi
-    
-    log_info "Uninstalling $package_name..."
-    
+
     IFS='|' read -ra installers <<< "$package_info"
-    
+
     for installer in "${installers[@]}"; do
         IFS=':' read -ra parts <<< "$installer"
-        local manager="${parts[0]}"
+        local current_manager="${parts[0]}"
         local package="${parts[1]}"
-        
-        case "$manager" in
-            "npm")
-                if command -v npm >/dev/null 2>&1; then
-                    log_info "Uninstalling via npm: $package"
-                    npm uninstall -g "$package"
-                    log_success "$package_name uninstalled via npm"
-                    return 0
-                fi
-                ;;
-            "pip"|"pip3")
-                if command -v "$manager" >/dev/null 2>&1; then
-                    log_info "Uninstalling via $manager: $package"
-                    "$manager" uninstall "$package"
-                    log_success "$package_name uninstalled via $manager"
-                    return 0
-                fi
-                ;;
-            "brew")
-                if command -v brew >/dev/null 2>&1; then
-                    log_info "Uninstalling via brew: $package"
-                    brew uninstall "$package"
-                    log_success "$package_name uninstalled via brew"
-                    return 0
-                fi
-                ;;
-            "gh")
-                if command -v gh >/dev/null 2>&1; then
-                    log_info "Uninstalling via gh: $package"
-                    gh extension remove "$package"
-                    log_success "$package_name uninstalled via gh"
-                    return 0
-                fi
-                ;;
-            "curl")
-                log_warning "Manual uninstallation required for $package_name"
-                return 0
-                ;;
-        esac
+
+        if [ "$current_manager" == "$manager" ]; then
+            case "$manager" in
+                "npm")
+                    npm update -g "$package"
+                    ;;
+                "pip"|"pip3")
+                    "$manager" install --upgrade "$package"
+                    ;;
+                "brew")
+                    brew upgrade "$package"
+                    ;;
+                "gh")
+                    gh extension upgrade "$package"
+                    ;;
+                "curl")
+                    curl -fsSL "$package" | bash
+                    ;;
+            esac
+            return
+        fi
     done
-    
-    log_error "No suitable package manager found for $package_name"
-    return 1
+
+    log_error "Could not find installer for package '$package_name' with manager '$manager'"
+    exit 1
+}
+
+
+# Uninstall a package
+uninstall_package() {
+    local package_name="$1"
+
+    if [ -z "${PACKAGES[$package_name]}" ]; then
+        log_error "Package '$package_name' not found"
+        exit 1
+    fi
+
+    local preferred_manager=$(get_preferred_manager "$package_name")
+
+    if [ -z "$preferred_manager" ]; then
+        log_error "No suitable package manager found for package '$package_name'"
+        exit 1
+    fi
+
+    log_info "Uninstalling '$package_name' with '$preferred_manager'..."
+
+    if uninstall_package_with_manager "$package_name" "$preferred_manager"; then
+        log_success "Successfully uninstalled '$package_name'"
+    else
+        log_error "Failed to uninstall '$package_name'"
+        exit 1
+    fi
+}
+
+# Uninstall a package with a specific package manager
+uninstall_package_with_manager() {
+    local package_name="$1"
+    local manager="$2"
+    local package_info="${PACKAGES[$package_name]}"
+
+    IFS='|' read -ra installers <<< "$package_info"
+
+    for installer in "${installers[@]}"; do
+        IFS=':' read -ra parts <<< "$installer"
+        local current_manager="${parts[0]}"
+        local package="${parts[1]}"
+
+        if [ "$current_manager" == "$manager" ]; then
+            case "$manager" in
+                "npm")
+                    npm uninstall -g "$package"
+                    ;;
+                "pip"|"pip3")
+                    "$manager" uninstall "$package"
+                    ;;
+                "brew")
+                    brew uninstall "$package"
+                    ;;
+                "gh")
+                    gh extension remove "$package"
+                    ;;
+                "curl")
+                    log_warning "Manual uninstallation required for '$package_name'"
+                    ;;
+            esac
+            return
+        fi
+    done
+
+    log_error "Could not find installer for package '$package_name' with manager '$manager'"
+    exit 1
 }
 
 # List installed packages
 list_installed() {
     log_info "Listing installed AI CLI tools..."
-    
-    local tools=("claude" "gemini" "codex" "perplexity" "aider" "ai_shell" "ollama" "cursor-agent" "gh")
-    local installed=()
-    
-    for tool in "${tools[@]}"; do
-        if command -v "$tool" >/dev/null 2>&1; then
-            installed+=("$tool")
+
+    for package_name in "${!PACKAGES[@]}"; do
+        if command -v "$package_name" >/dev/null 2>&1; then
+            log_success "$package_name is installed"
         fi
     done
-    
-    if [ ${#installed[@]} -eq 0 ]; then
-        log_warning "No AI CLI tools found"
-    else
-        log_success "Installed tools: ${installed[*]}"
-    fi
 }
 
 # Show package info
 show_package_info() {
     local package_name="$1"
-    
+
     if [ -z "$package_name" ]; then
         echo "Available packages:"
         for pkg in "${!PACKAGES[@]}"; do
@@ -294,24 +279,22 @@ show_package_info() {
         done
         return
     fi
-    
-    local package_info="${PACKAGES[$package_name]}"
-    
-    if [ -z "$package_info" ]; then
+
+    if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"
-        return 1
+        exit 1
     fi
-    
+
     echo "Package: $package_name"
     echo "Installers:"
-    
-    IFS='|' read -ra installers <<< "$package_info"
-    
+
+    IFS='|' read -ra installers <<< "${PACKAGES[$package_name]}"
+
     for installer in "${installers[@]}"; do
         IFS=':' read -ra parts <<< "$installer"
         local manager="${parts[0]}"
         local package="${parts[1]}"
-        
+
         if command -v "$manager" >/dev/null 2>&1; then
             echo "  ✓ $manager: $package"
         else
