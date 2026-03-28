@@ -14,17 +14,30 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Package definitions
+# Package definitions keyed by the names used throughout this repository.
 declare -A PACKAGES
-PACKAGES[anthropic-claude]="npm:@anthropic-ai/claude-code|pip:claude-ai|brew:claude-ai"
-PACKAGES[google-gemini]="npm:@google/gemini-cli|pip:google-generativeai"
-PACKAGES[openai-codex]="npm:@openai/codex|pip:openai"
-PACKAGES[perplexity-ai]="pip:perplexity-ai|npm:@perplexity-ai/cli"
-PACKAGES[aider-chat]="pip:aider-chat|npm:aider-cli"
-PACKAGES[ai-shell]="pip:ai-shell|npm:ai-shell"
-PACKAGES[ollama]="brew:ollama|curl:https://ollama.ai/install.sh"
+PACKAGES[claude]="npm:@anthropic-ai/claude-code"
 PACKAGES[cursor]="curl:https://cursor.com/install"
-PACKAGES[github-copilot]="gh:github/gh-copilot"
+PACKAGES[gemini]="npm:@google/gemini-cli"
+PACKAGES[codex]="npm:@openai/codex"
+PACKAGES[copilot]="gh:github/gh-copilot"
+PACKAGES[perplexity]="pip:perplexity-ai|npm:@perplexity-ai/cli"
+PACKAGES[ollama]="brew:ollama|curl:https://ollama.ai/install.sh"
+PACKAGES[aider]="pip:aider-chat"
+PACKAGES[ai_shell]="pip:ai-shell|npm:ai-shell"
+
+resolve_package_name() {
+    case "$1" in
+        anthropic-claude) echo "claude" ;;
+        google-gemini) echo "gemini" ;;
+        openai-codex) echo "codex" ;;
+        github-copilot) echo "copilot" ;;
+        perplexity-ai) echo "perplexity" ;;
+        aider-chat) echo "aider" ;;
+        ai-shell) echo "ai_shell" ;;
+        *) echo "$1" ;;
+    esac
+}
 
 # Logging functions
 log_info() {
@@ -102,7 +115,16 @@ install_package_with_manager() {
 
 # Install a package
 install_package() {
-    local package_name="$1"
+    local package_name
+    package_name="$(resolve_package_name "$1")"
+
+    if [ "$package_name" = "all" ]; then
+        local pkg
+        for pkg in claude cursor gemini codex copilot perplexity ollama aider ai_shell; do
+            install_package "$pkg"
+        done
+        return
+    fi
 
     if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"
@@ -128,7 +150,16 @@ install_package() {
 
 # Update a package
 update_package() {
-    local package_name="$1"
+    local package_name
+    package_name="$(resolve_package_name "$1")"
+
+    if [ "$package_name" = "all" ]; then
+        local pkg
+        for pkg in claude cursor gemini codex copilot perplexity ollama aider ai_shell; do
+            update_package "$pkg"
+        done
+        return
+    fi
 
     if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"
@@ -194,7 +225,16 @@ update_package_with_manager() {
 
 # Uninstall a package
 uninstall_package() {
-    local package_name="$1"
+    local package_name
+    package_name="$(resolve_package_name "$1")"
+
+    if [ "$package_name" = "all" ]; then
+        local pkg
+        for pkg in claude cursor gemini codex copilot perplexity ollama aider ai_shell; do
+            uninstall_package "$pkg"
+        done
+        return
+    fi
 
     if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"
@@ -279,6 +319,8 @@ show_package_info() {
         done
         return
     fi
+
+    package_name="$(resolve_package_name "$package_name")"
 
     if [ -z "${PACKAGES[$package_name]}" ]; then
         log_error "Package '$package_name' not found"

@@ -232,14 +232,20 @@ verify_installations() {
 # Create helper scripts
 create_helper_scripts() {
     log_step "Creating helper scripts..."
+    local repo_root
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    mkdir -p "$HOME/.local/bin"
 
     # Create update script
     cat > "$HOME/.local/bin/update-ai-tools" << 'EOF'
 #!/bin/bash
 # Update all AI CLI tools
 
-./scripts/package-manager.sh update all
+REPO_ROOT="__REPO_ROOT__"
+"$REPO_ROOT/scripts/package-manager.sh" update all
 EOF
+    sed -i "s|__REPO_ROOT__|$repo_root|" "$HOME/.local/bin/update-ai-tools"
     chmod +x "$HOME/.local/bin/update-ai-tools"
     log_success "Created update script: ~/.local/bin/update-ai-tools"
 
@@ -248,8 +254,10 @@ EOF
 #!/bin/bash
 # Test all AI CLI tools
 
-./scripts/quick-test.sh
+REPO_ROOT="__REPO_ROOT__"
+"$REPO_ROOT/scripts/quick-test.sh"
 EOF
+    sed -i "s|__REPO_ROOT__|$repo_root|" "$HOME/.local/bin/test-ai-tools"
     chmod +x "$HOME/.local/bin/test-ai-tools"
     log_success "Created test script: ~/.local/bin/test-ai-tools"
 

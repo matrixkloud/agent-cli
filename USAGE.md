@@ -28,15 +28,15 @@ This is the main setup script. It will guide you through the process of installi
 
 ### `scripts/select-agents.sh`
 
-This script allows you to select which AI agents you want to install. You can run this script to install new agents or to remove existing ones.
+This script allows you to select which AI agents you want to install. Use `bash scripts/select-agents.sh` for the interactive menu or `bash scripts/select-agents.sh -l` to print the current catalog.
 
 ### `scripts/configure-api-keys.sh`
 
-This script will guide you through the process of configuring your API keys. The script will create a `~/.ai-cli-env` file with your API keys.
+This script guides you through configuring API keys in `~/.ai-cli-env`. It preserves existing values unless you explicitly replace them.
 
 ### `scripts/quick-test.sh`
 
-This script will run a quick test of all the installed tools to make sure that they are working correctly.
+This script runs a quick test of the installed tools, checks the expected API keys, and confirms that each CLI responds to a basic help command.
 
 ### `scripts/health-monitor.sh`
 
@@ -58,7 +58,7 @@ This script is an AI agent orchestrator that can be used to manage and interact 
 
 ## Manual Setup
 
-If you prefer to install the tools manually, you can follow the guides in the `tools` directory.
+If you prefer to install tools manually, follow the guides in `tools/`. The repository now includes additional agentic CLI references for Goose, OpenCode, OpenHands, and Amp alongside the existing core tool guides.
 
 ## Contributing
 

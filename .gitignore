@@ -9,6 +9,7 @@
 
 # API keys and credentials
 *api-key*
+!scripts/configure-api-keys.sh
 *secret*
 *credential*
 *token*

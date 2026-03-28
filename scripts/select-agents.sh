@@ -16,15 +16,16 @@ NC='\033[0m' # No Color
 
 # Agent definitions
 declare -A AGENTS
-AGENTS[claude]="Claude CLI|Anthropic's Claude AI assistant|curl -fsSL https://claude.ai/install.sh | bash|npm install -g @anthropic-ai/claude-code|ANTHROPIC_API_KEY"
-AGENTS[cursor]="Cursor CLI|Cursor's AI-powered code editor CLI|curl https://cursor.com/install -fsSL | bash||"
-AGENTS[gemini]="Gemini CLI|Google's Gemini AI assistant||npm install -g @google/gemini-cli|GOOGLE_API_KEY"
-AGENTS[codex]="Codex CLI|OpenAI's Codex AI assistant||npm install -g @openai/codex|OPENAI_API_KEY"
-AGENTS[copilot]="GitHub Copilot CLI|Microsoft's GitHub Copilot CLI||gh extension install github/gh-copilot|"
-AGENTS[perplexity]="Perplexity CLI|Perplexity AI research assistant||pip install perplexity-ai|PERPLEXITY_API_KEY"
-AGENTS[ollama]="Ollama CLI|Local AI models (Llama, Mistral, etc.)|curl -fsSL https://ollama.ai/install.sh | sh||"
-AGENTS[aider]="Aider CLI|AI pair programming tool||pip install aider-chat|OPENAI_API_KEY"
-AGENTS[ai_shell]="AI Shell|Terminal AI assistant||pip install ai-shell|OPENAI_API_KEY"
+AGENTS[claude]="Claude CLI~Anthropic's Claude AI assistant~curl -fsSL https://claude.ai/install.sh | bash~npm install -g @anthropic-ai/claude-code~ANTHROPIC_API_KEY"
+AGENTS[cursor]="Cursor CLI~Cursor's AI-powered code editor CLI~curl https://cursor.com/install -fsSL | bash~~"
+AGENTS[gemini]="Gemini CLI~Google's Gemini AI assistant~~npm install -g @google/gemini-cli~GOOGLE_API_KEY"
+AGENTS[codex]="Codex CLI~OpenAI's Codex AI assistant~~npm install -g @openai/codex~OPENAI_API_KEY"
+AGENTS[copilot]="GitHub Copilot CLI~Microsoft's GitHub Copilot CLI~~gh extension install github/gh-copilot~"
+AGENTS[perplexity]="Perplexity CLI~Perplexity AI research assistant~~pip install perplexity-ai~PERPLEXITY_API_KEY"
+AGENTS[ollama]="Ollama CLI~Local AI models (Llama, Mistral, etc.)~curl -fsSL https://ollama.ai/install.sh | sh~~"
+AGENTS[aider]="Aider CLI~AI pair programming tool~~pip install aider-chat~OPENAI_API_KEY"
+AGENTS[ai_shell]="AI Shell~Terminal AI assistant~~pip install ai-shell~OPENAI_API_KEY"
+AGENT_KEYS=(claude cursor gemini codex copilot perplexity ollama aider ai_shell)
 
 # Selected agents
 declare -a SELECTED_AGENTS=()
@@ -45,11 +46,29 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+agent_count() {
+    echo "${#AGENT_KEYS[@]}"
+}
+
+get_agent_key_by_number() {
+    local choice="$1"
+
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        return 1
+    fi
+
+    if [ "$choice" -lt 1 ] || [ "$choice" -gt "${#AGENT_KEYS[@]}" ]; then
+        return 1
+    fi
+
+    echo "${AGENT_KEYS[$((choice-1))]}"
+}
+
 # Display agent information
 display_agent_info() {
     local agent_key="$1"
     local agent_info="${AGENTS[$agent_key]}"
-    IFS='|' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
+    IFS='~' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
     
     echo -e "${CYAN}$name${NC}"
     echo "  Description: $description"
@@ -75,9 +94,9 @@ show_available_agents() {
     echo
     
     local i=1
-    for agent_key in "${!AGENTS[@]}"; do
+    for agent_key in "${AGENT_KEYS[@]}"; do
         local agent_info="${AGENTS[$agent_key]}"
-        IFS='|' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
+        IFS='~' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
         
         echo -e "${CYAN}$i. $name${NC}"
         echo "   $description"
@@ -97,9 +116,9 @@ show_selection_menu() {
     echo
     
     local i=1
-    for agent_key in "${!AGENTS[@]}"; do
+    for agent_key in "${AGENT_KEYS[@]}"; do
         local agent_info="${AGENTS[$agent_key]}"
-        IFS='|' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
+        IFS='~' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
         
         local status=""
         if [[ " ${SELECTED_AGENTS[@]} " =~ " $agent_key " ]]; then
@@ -112,7 +131,7 @@ show_selection_menu() {
     
     echo
     echo -e "${YELLOW}Commands:${NC}"
-    echo "  [1-9] - Toggle agent selection"
+    echo "  [1-$(agent_count)] - Toggle agent selection"
     echo "  a     - Select all agents"
     echo "  n     - Select none"
     echo "  i     - Show agent information"
@@ -125,12 +144,22 @@ show_selection_menu() {
 # Toggle agent selection
 toggle_agent() {
     local choice="$1"
-    local agent_keys=($(printf '%s\n' "${!AGENTS[@]}" | sort))
-    local agent_key="${agent_keys[$((choice-1))]}"
-    
+    local agent_key
+    agent_key="$(get_agent_key_by_number "$choice")" || {
+        log_error "Invalid agent number: $choice"
+        return 1
+    }
+
     if [[ " ${SELECTED_AGENTS[@]} " =~ " $agent_key " ]]; then
         # Remove from selection
-        SELECTED_AGENTS=($(printf '%s\n' "${SELECTED_AGENTS[@]}" | grep -v "^$agent_key$"))
+        local updated_agents=()
+        local selected_agent
+        for selected_agent in "${SELECTED_AGENTS[@]}"; do
+            if [ "$selected_agent" != "$agent_key" ]; then
+                updated_agents+=("$selected_agent")
+            fi
+        done
+        SELECTED_AGENTS=("${updated_agents[@]}")
         log_info "Deselected $agent_key"
     else
         # Add to selection
@@ -141,7 +170,7 @@ toggle_agent() {
 
 # Select all agents
 select_all() {
-    SELECTED_AGENTS=($(printf '%s\n' "${!AGENTS[@]}" | sort))
+    SELECTED_AGENTS=("${AGENT_KEYS[@]}")
     log_success "Selected all agents"
 }
 
@@ -153,15 +182,14 @@ select_none() {
 
 # Show agent information
 show_agent_info() {
-    echo -e "${CYAN}Enter agent number (1-9) to see details:${NC}"
+    echo -e "${CYAN}Enter agent number (1-$(agent_count)) to see details:${NC}"
     read -r choice
 
-    if [[ "$choice" =~ ^[1-9]$ ]]; then
-        local agent_keys=($(printf '%s\n' "${!AGENTS[@]}" | sort))
-        local agent_key="${agent_keys[$((choice-1))]}"
+    local agent_key
+    if agent_key="$(get_agent_key_by_number "$choice")"; then
         display_agent_info "$agent_key"
     else
-        log_error "Invalid choice. Please enter 1-9."
+        log_error "Invalid choice. Please enter a number between 1 and $(agent_count)."
     fi
 }
 
@@ -173,7 +201,7 @@ show_selected() {
         echo -e "${GREEN}Selected agents:${NC}"
         for agent_key in "${SELECTED_AGENTS[@]}"; do
             local agent_info="${AGENTS[$agent_key]}"
-            IFS='|' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
+            IFS='~' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
             echo "  - $name"
         done
     fi
@@ -183,6 +211,8 @@ show_selected() {
 # Generate installation script
 generate_installation_script() {
     local script_file="$HOME/.local/bin/install-selected-agents"
+
+    mkdir -p "$HOME/.local/bin"
     
     cat > "$script_file" << 'EOF'
 #!/bin/bash
@@ -237,7 +267,7 @@ EOF
     # Add installation commands for selected agents
     for agent_key in "${SELECTED_AGENTS[@]}"; do
         local agent_info="${AGENTS[$agent_key]}"
-        IFS='|' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
+        IFS='~' read -r name description install_cmd1 install_cmd2 api_key <<< "$agent_info"
         
         echo "    # Install $name" >> "$script_file"
         if [ -n "$install_cmd1" ]; then
@@ -286,7 +316,7 @@ main_selection() {
         read -r choice
         
         case $choice in
-            [1-9])
+            [0-9]*)
                 toggle_agent "$choice"
                 ;;
             a|A)
@@ -352,6 +382,13 @@ confirm_selection() {
 
 # Main execution
 main() {
+    case "${1:-}" in
+        -l|--list)
+            show_available_agents
+            exit 0
+            ;;
+    esac
+
     echo -e "${PURPLE}================================${NC}"
     echo -e "${PURPLE}  AI Agent Selector${NC}"
     echo -e "${PURPLE}================================${NC}"
